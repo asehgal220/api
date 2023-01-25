@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 
+	common_config "github.com/HackIllinois/api/common/config"
 	"github.com/HackIllinois/api/common/database"
 	hack_errors "github.com/HackIllinois/api/common/errors"
 	"github.com/HackIllinois/api/common/utils"
@@ -35,15 +36,22 @@ func Initialize() error {
 }
 
 /*
-	Returns the info associated with the given user id
+Returns the info associated with the given signed user token
 */
-func GetUserInfo(id string, sessCtx *mongo.SessionContext) (*models.UserInfo, error) {
+func GetUserInfo(signed_token string, sessCtx *mongo.SessionContext) (*models.UserInfo, error) {
+
+	id, err := common_config.GenerateIdFromSignedToken(signed_token)
+
+	if err != nil {
+		return nil, err
+	}
+
 	query := database.QuerySelector{
 		"id": id,
 	}
 
 	var user_info models.UserInfo
-	err := db.FindOne("info", query, &user_info, sessCtx)
+	err = db.FindOne("info", query, &user_info, sessCtx)
 
 	if err != nil {
 		return nil, err
@@ -53,15 +61,22 @@ func GetUserInfo(id string, sessCtx *mongo.SessionContext) (*models.UserInfo, er
 }
 
 /*
-	Set the info associated with the given user id
-	The record will be created if it does not already exist
+Set the info associated with the given user id
+The record will be created if it does not already exist
 */
-func SetUserInfo(id string, user_info models.UserInfo, sessCtx *mongo.SessionContext) error {
+func SetUserInfo(signed_token string, user_info models.UserInfo, sessCtx *mongo.SessionContext) error {
+
+	id, err := common_config.GenerateIdFromSignedToken(signed_token)
+
+	if err != nil {
+		return err
+	}
+
 	selector := database.QuerySelector{
 		"id": id,
 	}
 
-	err := db.Replace("info", selector, user_info, true, sessCtx)
+	err = db.Replace("info", selector, user_info, true, sessCtx)
 
 	return err
 }
@@ -100,7 +115,7 @@ func UpsertUserInfo(id string, user_info models.UserInfo) (*models.UserInfo, *ha
 }
 
 /*
-	Returns the users associated with the given parameters
+Returns the users associated with the given parameters
 */
 func GetFilteredUserInfo(parameters map[string][]string) (*models.FilteredUsers, error) {
 	// Grab pagination and sorting parameters and delete to prevent the CreateFilterQuery from using them
@@ -164,7 +179,7 @@ func GetFilteredUserInfo(parameters map[string][]string) (*models.FilteredUsers,
 }
 
 /*
-	Generates a QR string for a user with the provided ID, as a URI
+Generates a QR string for a user with the provided ID, as a URI
 */
 func GetQrInfo(id string) (string, error) {
 	_, err := GetUserInfo(id, nil)
@@ -192,7 +207,7 @@ func GetQrInfo(id string) (string, error) {
 }
 
 /*
-	Returns all user stats
+Returns all user stats
 */
 func GetStats() (map[string]interface{}, error) {
 	return db.GetStats("info", []string{}, nil)

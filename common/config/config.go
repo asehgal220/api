@@ -1,12 +1,16 @@
 package config
 
 import (
-	"github.com/HackIllinois/api/common/configloader"
+	"fmt"
 	"os"
+
+	"github.com/HackIllinois/api/common/configloader"
+	"github.com/dgrijalva/jwt-go"
 )
 
 var IS_PRODUCTION bool
 var DEBUG_MODE bool
+var TOKEN_SECRET string
 
 func init() {
 	err := Initialize()
@@ -39,5 +43,28 @@ func Initialize() error {
 
 	DEBUG_MODE = (debug_mode == "true")
 
+	TOKEN_SECRET, err = cfg_loader.Get("TOKEN_SECRET")
+
+	if err != nil {
+		return err
+	}
+
 	return nil
+}
+
+func GenerateIdFromSignedToken(signed_token string) (interface{}, error) {
+	token, err := jwt.Parse(signed_token, func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+		}
+		return []byte(TOKEN_SECRET), nil
+	})
+
+	if err != nil {
+		return "", err
+	}
+
+	id := token.Claims.(jwt.MapClaims)["userId"]
+
+	return id, err
 }
